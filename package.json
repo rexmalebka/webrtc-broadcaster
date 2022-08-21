@@ -1,0 +1,28 @@
+{
+	"name": "obs-webrtc2",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dev":"cd static && npx http-server",
+		"build": "npx webpack"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"@vue/compiler-sfc": "^3.2.37",
+		"css-loader": "^6.7.1",
+		"style-loader": "^3.3.1",
+		"ts-loader": "^9.3.1",
+		"typescript": "^4.7.4",
+		"webpack": "^5.74.0",
+		"webpack-cli": "^4.10.0"
+	},
+	"dependencies": {
+		"@vue/devtools": "^6.2.1",
+		"vue": "^3.2.37",
+		"vue-loader": "^17.0.0"
+	}
+}
