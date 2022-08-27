@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"dev":"cd static && npx http-server",
+		"dev": "cd static && npx http-server",
 		"build": "npx webpack"
 	},
 	"keywords": [],
@@ -21,8 +21,10 @@
 		"webpack-cli": "^4.10.0"
 	},
 	"dependencies": {
-		"@vue/devtools": "^6.2.1",
+		"lzwcompress": "^1.1.0",
+		"peerjs": "^1.4.7",
 		"vue": "^3.2.37",
-		"vue-loader": "^17.0.0"
+		"vue-loader": "^17.0.0",
+		"vue-router": "^4.0.13"
 	}
 }

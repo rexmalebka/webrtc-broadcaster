@@ -7,8 +7,13 @@
 		<div class="content">	
 			<div id="streamimg_form">
 				<button 
-					@click="streaming=!streaming">
+					:disabled="disabled_button_streaming"
+					@click="toggle_streaming">
+
 					{{streaming ? 'stop': 'start'}} streaming</button>
+			</div>
+			<div id="streaming_url" v-if="streaming && disabled_button_streaming==false">
+				<div @click="copy_clipboard"><label>{{url_streaming}}</label> </div>
 			</div>
 			<div id="control_parameters">
 				<div><label for="">output resolution</label></div>
@@ -59,25 +64,27 @@
 					<div
 						v-for="(server, item) in ice_servers"
 					>
-						<div class="remove_ice_server"><img src="img/remove.png" alt=""></div>
+						<div class="remove_ice_server"><img 
+								@click="remove_ice_server(item)"
+								src="img/remove.png" alt=""></div>
 						<div>
-							<div><label for="">urls</label></div>
+							<div><label for=""><b>urls</b></label></div>
 							<div><label for="">{{server.urls}}</label></div>
 						</div>
 						<div>
 							<div v-if="server.username">
-								<label for="">username</label>
+								<label for=""><b>username</b></label>
 							</div>
 							<div v-if="server.username">
-								<label for="">{{server.username}}</label>
+								<label for=""><i>{{server.username}}</i></label>
 							</div>
 						</div>
 						<div>
 							<div v-if="server.credential">
-								<label for="">credential</label>
+								<label for=""><b>credential</b></label>
 							</div>
 							<div v-if="server.credential">
-								<label for="">{{server.credential}}</label>
+								<label for=""><i>{{server.credential}}</i></label>
 							</div>
 						</div>
 					</div>
@@ -89,6 +96,11 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue'
+import Peer from 'peerjs'
+import type {DataConnection} from 'peerjs'
+
+const lzwCompress = require('lzwcompress');
+
 
 export default defineComponent({
 	name: 'ControlPanel',
@@ -111,6 +123,11 @@ export default defineComponent({
 				this.$emit('change_streaming_state', new_state)			
 			}
 		},
+		url_streaming():string{
+			
+			return `${window.location.origin}${location.pathname}#/watch/${this.id}`
+		
+		},
 		width:{
 			get():number{
 				return this.output.resolution.width
@@ -126,6 +143,7 @@ export default defineComponent({
 				}
 			}
 		},
+
 		height:{
 			get():number{
 				return this.output.resolution.height
@@ -143,12 +161,31 @@ export default defineComponent({
 		},
 	},
 	data(){
+
+		interface  ice_server{
+			urls: string
+			username?: string
+			credential?: string
+		}
+
+
+		let ice_servers:ice_server[] = []
+		let mediaStream: MediaStream = new MediaStream()
+
 		return {
+			mediaStream: mediaStream,
+			id:'',
+			peer: new Peer(),
 			peerjs:{
+				/*
 				host:'peerjs.piranhalab.cc',
 				secure:true
+				 */
+				host:'0.peerjs.com',
+				secure:false
 			},
-			ice_servers:[
+			ice_servers:ice_servers,
+				/*
 				{
 					urls: 'stun:stun.piranhalab.cc:5349'
 				},
@@ -156,22 +193,111 @@ export default defineComponent({
 					urls: 'turn:turn.piranhalab.cc:3478',
 					username: 'guest',
 					credential:"somepassword"
-				}
+					}
 			],
+				 */
 			ice_server:{
 				urls:'',
 				username:'',
 				credential: ''
 			},
+			disabled_button_streaming: false,
 		}
 	},
 	methods:{
 		add_ice_server(){
+			if(this.ice_server.urls.trim() !=''){
+				interface ice_server{
+					urls: string
+					username?: string
+					credential?: string
+				}
 
-		}
+				let i_s:ice_server= {
+					urls: this.ice_server.urls.trim()
+				}
+
+				if(this.ice_server.username.trim() != ''){
+					i_s.username = this.ice_server.username.trim() as string
+				}
+
+				if(this.ice_server.credential.trim() != ''){
+					i_s.credential = this.ice_server.credential.trim() as string
+				}
+
+				this.ice_servers.push(i_s)
+				this.ice_server.urls=''
+				this.ice_server.username=''
+				this.ice_server.credential=''
+			}
+		},
+		remove_ice_server(index:number){
+			this.ice_servers.splice(index,1)		
+		},
+		peerjs_on_open(id:string){
+			console.debug('peerjs opened')
+			this.id = id
+			
+			this.mediaStream = this.output.canvas.captureStream(25)
+
+			this.peer.on('connection', this.peerjs_on_connection)
+
+			this.streaming = true
+			this.disabled_button_streaming = false
+
+		},
+		peerjs_on_connection(conn: DataConnection){
+			console.debug("connected", conn)
+
+			this.peer.call(conn.peer, this.mediaStream, {
+				metadata:{
+					output:{
+						width: this.output.resolution.width,
+						height: this.output.resolution.height
+					}			
+				}
+			})
+		},
+		toggle_streaming(){
+			this.disabled_button_streaming = true
+			if(this.streaming == false){
+
+				this.peer.destroy()
+
+				let a = new Uint32Array(3);
+				window.crypto.getRandomValues(a);
+
+				const id = (performance.now().toString(36)+Array.from(a).map(A => A.toString(36)).join("")).replace(/\./g,"");
+
+				this.id = id
+				
+				if(this.peerjs.host.trim() != ''){
+					let peer = new Peer(
+						id,
+						{
+							host: this.peerjs.host.trim(),
+							secure: this.peerjs.secure,
+							config:{
+								iceServers: this.ice_servers
+							},
+							debug:4
+						})
+
+					this.peer = peer
+					if(this.peer !=null){
+						this.peer.on('open', this.peerjs_on_open)
+					}
+				}
+			}
+		},
+		copy_clipboard(){
+			  navigator.clipboard.writeText(this. url_streaming)
+		},
 	},
 	mounted(){
-		console.info('ControlPanel component mounted',this)
+		console.info('component ControlPanel mounted',this)
+		console.info(lzwCompress.pack(this.ice_servers))
+		console.info(lzwCompress.pack(this.peerjs))
 	}
 })
 
@@ -224,7 +350,6 @@ export default defineComponent({
 	padding:0 1em 0 1em;
 }
 
-
 #ice_servers .ice_servers_form div, #peerjs_server .peerjs_form div{
 	flex:30%;
 }
@@ -250,7 +375,11 @@ export default defineComponent({
 	flex-direction:column;
 	flex-wrap:wrap;
 	background:#3a393a;
+}
+
+#ice_servers_list > div{
 	padding:1em ;
+
 }
 
 #ice_servers_list div div{
@@ -259,5 +388,10 @@ export default defineComponent({
 
 #ice_servers_list .remove_ice_server{
 	flex:100%;
+}
+
+#streaming_url{
+	color:white;
+	overflow-wrap:anywhere;
 }
 </style>
